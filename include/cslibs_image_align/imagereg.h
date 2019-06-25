@@ -577,7 +577,7 @@ public:
 
     static cv::Mat toDeltaPars(const cv::Mat &paramUpdate, double stepFactor)
     {
-        cv::Mat res(8,1,CV_64F);
+        cv::Mat res(9,1,CV_64F);
         res = -stepFactor*paramUpdate;
 
         res.at<double>(8,0) = -paramUpdate.at<double>(8,0);
@@ -1146,37 +1146,31 @@ public:
                 refMaskArr = _mm256_load_ps(refMaskPtr+x);
                 tempMaskArr = _mm256_load_ps(tempMaskPtr+x);
                 maskArr = _mm256_mul_ps(refMaskArr,tempMaskArr);
-                if (!proc_.TestNotZero(maskArr))
+                if (proc_.TestNotZero(maskArr))
                 {
-                    if (refImage.channels() != 3) mPosX = _mm256_add_ps(mPosX,mXStep);
-                    else
-                    {
-                        mPosX = _mm256_add_ps(mPosX,*mXStepCur);
-                        mXStepCur = mXStepCur == mXStepEnd? mXStepCur = &mXSteps[0] : ++mXStepCur;
-                    }
-                    continue;
+                    refArr = _mm256_load_ps(refImgPtr+x);
+                    refGradXArr = _mm256_load_ps(refGradPtrX+x);
+                    refGradYArr = _mm256_load_ps(refGradPtrY+x);
+                    tmpArr = _mm256_load_ps(tempImgPtr+x);
+                    tempGradXArr = _mm256_load_ps(tempGradPtrX+x);
+                    tempGradYArr = _mm256_load_ps(tempGradPtrY+x);
+
+
+                    sumPixels = _mm256_add_ps(sumPixels,maskArr);
+
+                    mDiffVal = _mm256_sub_ps(refArr,tmpArr);
+
+                    proc_.AddJacobians(jVals,mPosX,mPosY,refGradXArr,refGradYArr, tempGradXArr, tempGradYArr,refArr,tmpArr,maskArr,gradMul);
+                    proc_.CalcMat(jVals,mDiffVal,sumHesRows,sumJacDifs);
+
                 }
 
-                refArr = _mm256_load_ps(refImgPtr+x);
-                refGradXArr = _mm256_load_ps(refGradPtrX+x);
-                refGradYArr = _mm256_load_ps(refGradPtrY+x);
-                tmpArr = _mm256_load_ps(tempImgPtr+x);
-                tempGradXArr = _mm256_load_ps(tempGradPtrX+x);
-                tempGradYArr = _mm256_load_ps(tempGradPtrY+x);
-
-
-                sumPixels = _mm256_add_ps(sumPixels,maskArr);
-
-                mDiffVal = _mm256_sub_ps(refArr,tmpArr);
-
-                proc_.AddJacobians(jVals,mPosX,mPosY,refGradXArr,refGradYArr, tempGradXArr, tempGradYArr,refArr,tmpArr,maskArr,gradMul);
-                proc_.CalcMat(jVals,mDiffVal,sumHesRows,sumJacDifs);
 
                 if (refImage.channels() != 3) mPosX = _mm256_add_ps(mPosX,mXStep);
                 else
                 {
                     mPosX = _mm256_add_ps(mPosX,*mXStepCur);
-                    mXStepCur = mXStepCur == mXStepEnd? mXStepCur = &mXSteps[0] : ++mXStepCur;
+                    mXStepCur = mXStepCur == mXStepEnd? &mXSteps[0] : mXStepCur+1;
                 }
 
             }
@@ -1285,35 +1279,29 @@ public:
                 refMaskArr = _mm256_load_ps(refMaskPtr+x);
                 tempMaskArr = _mm256_load_ps(tempMaskPtr+x);
                 maskArr = _mm256_mul_ps(refMaskArr,tempMaskArr);
-                if (!proc_.TestNotZero(maskArr))
+                if (proc_.TestNotZero(maskArr))
                 {
-                    if (refImage.channels() != 3) mPosX = _mm256_add_ps(mPosX,mXStep);
-                    else
-                    {
-                        mPosX = _mm256_add_ps(mPosX,*mXStepCur);
-                        mXStepCur = mXStepCur == mXStepEnd? mXStepCur = &mXSteps[0] : ++mXStepCur;
-                    }
-                    continue;
+                    refArr = _mm256_load_ps(refImgPtr+x);
+                    refGradXArr = _mm256_load_ps(refGradPtrX+x);
+                    refGradYArr = _mm256_load_ps(refGradPtrY+x);
+                    tmpArr = _mm256_load_ps(tempImgPtr+x);
+
+
+                    sumPixels = _mm256_add_ps(sumPixels,maskArr);
+
+                    mDiffVal = _mm256_sub_ps(refArr,tmpArr);
+
+                    proc_.AddJacobians(jVals,mPosX,mPosY,refGradXArr,refGradYArr, mYStep, mYStep,refArr,tmpArr,maskArr,gradMul);
+                    proc_.CalcMat(jVals,mDiffVal,sumHesRows,sumJacDifs);
+
                 }
 
-                refArr = _mm256_load_ps(refImgPtr+x);
-                refGradXArr = _mm256_load_ps(refGradPtrX+x);
-                refGradYArr = _mm256_load_ps(refGradPtrY+x);
-                tmpArr = _mm256_load_ps(tempImgPtr+x);
-
-
-                sumPixels = _mm256_add_ps(sumPixels,maskArr);
-
-                mDiffVal = _mm256_sub_ps(refArr,tmpArr);
-
-                proc_.AddJacobians(jVals,mPosX,mPosY,refGradXArr,refGradYArr, mYStep, mYStep,refArr,tmpArr,maskArr,gradMul);
-                proc_.CalcMat(jVals,mDiffVal,sumHesRows,sumJacDifs);
 
                 if (refImage.channels() != 3) mPosX = _mm256_add_ps(mPosX,mXStep);
                 else
                 {
                     mPosX = _mm256_add_ps(mPosX,*mXStepCur);
-                    mXStepCur = mXStepCur == mXStepEnd? mXStepCur = &mXSteps[0] : ++mXStepCur;
+                    mXStepCur = mXStepCur == mXStepEnd? &mXSteps[0] : mXStepCur+1;
                 }
 
             }
@@ -1554,7 +1542,7 @@ public:
 
     void SetTermCrit(cv::TermCriteria termCrit)
     {
-        for (int i = 0; i < procs_.size();++i)
+        for (unsigned int i = 0; i < procs_.size();++i)
         {
             procs_[i]->SetTermCrit(termCrit);
             //termCrit.maxCount /= 2;
@@ -1563,7 +1551,7 @@ public:
 
     void SetStepFactor(float factor)
     {
-        for (int i = 0; i < procs_.size();++i)
+        for (unsigned int i = 0; i < procs_.size();++i)
         {
             procs_[i]->SetStepFactor(factor);
         }

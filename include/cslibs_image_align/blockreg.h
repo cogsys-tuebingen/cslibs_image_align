@@ -187,12 +187,12 @@ public:
         float maxWeight = 0;
         BlockInfo *maxBlock = nullptr;
 
-        for (int t = 0; t < infos.size();++t)
+        for (unsigned int t = 0; t < infos.size();++t)
         {
             selected = &infos[t];
             sPars = paramScale_*selected->currentParams;
 
-            for (int s = 0; s < infos.size();++s)
+            for (unsigned int s = 0; s < infos.size();++s)
             {
                 testing = &infos[s];
                 if (!testing->isValid) continue;
@@ -216,7 +216,7 @@ public:
         }
 
         // for debug
-        for (int t = 0; t < maxBlock->selectedBlock.size();++t) maxBlock->selectedBlock[t]->isSelected = true;
+        for (unsigned int t = 0; t < maxBlock->selectedBlock.size();++t) maxBlock->selectedBlock[t]->isSelected = true;
 
         //std::cout << "Hess: " << maxBlock->hessSum;
         //std::cout << "JacD: " << maxBlock->jacDiffSum;
@@ -356,7 +356,7 @@ public:
 
             if (proc_.useESMJac)
             {
-                for (int t = 0; t < blocks_.size();++t)
+                for (unsigned int t = 0; t < blocks_.size();++t)
                 {
                     BlockInfo *curInfo = &blocks_[t];
                     curInfo->SetZero();
@@ -372,7 +372,7 @@ public:
             }
             else
             {
-                for (int t = 0; t < blocks_.size();++t)
+                for (unsigned int t = 0; t < blocks_.size();++t)
                 {
                     BlockInfo *curInfo = &blocks_[t];
                     curInfo->SetZero();
@@ -474,7 +474,7 @@ public:
         cv::Point2d otl,otr,obl,obr;
 
 
-        for (int i = 0; i < blocks_.size();i++)
+        for (unsigned int i = 0; i < blocks_.size();i++)
         {
 
             BlockInfo *cB = &blocks_[i];

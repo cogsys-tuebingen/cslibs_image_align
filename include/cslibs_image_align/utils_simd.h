@@ -65,7 +65,6 @@ inline void  CalcErrorSqrAVX(const cv::Mat &ref,const cv::Mat &refmask, const cv
     __m256 maskDiff;
 
 
-    __m256 res;
     __m256 resSqr;
 
     //const __m256 absmask = _mm256_castsi256_ps(_mm256_set1_epi32(0x7FFFFFFF));
