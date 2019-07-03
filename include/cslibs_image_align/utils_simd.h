@@ -209,6 +209,33 @@ inline void  CalcErrorSqrResidualAVX(const cv::Mat &ref,const cv::Mat &refmask, 
 }
 
 
+cv::Point2f GetInitialTrans(const cv::Mat &ref, const cv::Mat &refMask, const cv::Mat &tmp, const cv::Mat &tmpMask, int stepSize, int numSteps)
+{
+
+    float bestError = 9999999;
+    cv::Point2i bestPos;
+    float numPixels;
+    float curError;
+
+    for (int y = -stepSize*numSteps; y <= stepSize*numSteps;y+=stepSize)
+    {
+        for (int x = -stepSize*numSteps; x <= stepSize*numSteps;x+=stepSize)
+        {
+            Utils_SIMD::CalcErrorSqrAVX(ref,refMask,tmp,tmpMask,cv::Point2i(x,y),curError,numPixels);
+            if (curError < bestError)
+            {
+                bestError = curError;
+                bestPos.x = x;
+                bestPos.y = y;
+            }
+        }
+    }
+
+    return bestPos;
+
+}
+
+
 }
 
 

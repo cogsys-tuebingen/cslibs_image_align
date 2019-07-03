@@ -151,30 +151,6 @@ public:
         }
     }
 
-    /*
-    cv::Mat SimpleJoin()
-    {
-        BlockInfo *selected = nullptr;
-
-        cv::Mat hess = lastSelectedBlock_->hess.clone(),jacDiff = lastSelectedBlock_->jacDiff.clone();
-
-        for (int t = 0; t < lastSelectedBlock_->selectedBlock.size();++t)
-        {
-            selected = lastSelectedBlock_->selectedBlock[t];
-            hess += selected->hess;
-            jacDiff += selected->jacDiff;
-
-        }
-
-        cv::Mat hInv;
-        cv::invert(hess,hInv);
-        cv::Mat resMat = hInv*jacDiff;
-        cv::Mat resMatD;
-        resMat.convertTo(resMatD,CV_64F);
-        return resMatD;
-    }
-    */
-
     cv::Mat Filter(std::vector<BlockInfo> &infos)
     {
         BlockInfo *selected, *testing;
@@ -218,14 +194,7 @@ public:
         // for debug
         for (unsigned int t = 0; t < maxBlock->selectedBlock.size();++t) maxBlock->selectedBlock[t]->isSelected = true;
 
-        //std::cout << "Hess: " << maxBlock->hessSum;
-        //std::cout << "JacD: " << maxBlock->jacDiffSum;
-
-
         lastSelectedBlock_ = maxBlock;
-        //cv::Mat resMatF =  maxBlock->CalcSumParams();
-        //cv::Mat resMatD;
-        //resMatF.convertTo(resMatD,CV_64F);
         return maxBlock->CalcSumParams();
 
 
@@ -327,26 +296,18 @@ public:
         tmpImg_->CopyDataFrom(tmpImg);
         tmpMask_->CopyDataFrom(tmpMask);
 
-        //cv::Mat tsobel;
         cv::Sobel(refImg,refGradX_->mat_,-1,1,0);
-        //refGradX_->CopyDataFrom(tsobel);
         cv::Sobel(refImg,refGradY_->mat_,-1,0,1);
-        //refGradY_->CopyDataFrom(tsobel);
 
         if (proc_.useESMJac)
         {
             cv::Sobel(tmpImg,tmpGradX_->mat_,-1,1,0);
-            //tmpGradX_->CopyDataFrom(tsobel);
             cv::Sobel(tmpImg,tmpGradY_->mat_,-1,0,1);
-            //tmpGradY_->CopyDataFrom(tsobel);
         }
-        //int numPixels = 0;
 
         cv::Point2i offset(0,0);
         cv::Point2i tmpPos(0,0);
         cv::Point2i tmpSize(tmpImg.cols,tmpImg.rows);
-
-        //bool hasFiltered = false;
 
 
         while (result.TestResults(termCrit_))
@@ -389,19 +350,6 @@ public:
                 //CalcHesJacDifICAVX(refImg_->mat_,refGradX_->mat_,refGradY_->mat_,refMask_->mat_, wTmpImg_->mat_,wTmpMask_->mat_, offset,tmpPos,tmpSize,hessF,jacF,numPixels);
             }
 
-            /*
-            cv::Mat resPars;
-            if (!hasFiltered)
-            {
-                resPars = blockProc_.Filter(blocks_);
-                hasFiltered = true;
-            }
-            else
-            {
-                resPars = blockProc_.SimpleJoin();
-
-            }
-            */
             cv::Mat resPars = blockProc_.Filter(blocks_);
 
 
