@@ -27,9 +27,13 @@ include_directories(
 
 cslibs_image_align_show_headers()
 
-cslibs_image_align_add_unit_test_gtest(ia_test
-    SRCS test/test.cpp
-)
+#cslibs_image_align_add_unit_test_gtest(ia_test SRCS test/test.cpp WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/test)
+
+catkin_add_gtest(${PROJECT_NAME}-test test/test.cpp WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/test)
+
+if(TARGET ${PROJECT_NAME}-test)
+  target_link_libraries(${PROJECT_NAME}-test ${OpenCV_LIBRARIES})
+endif()
 
 
 add_executable(example_align
