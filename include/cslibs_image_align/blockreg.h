@@ -5,17 +5,19 @@
 #include <iomanip>
 
 
-//namespace Utils_Block
-//{
 
-
+/*!
+  Class for storing the data of one image sub block
+*/
 class BlockInfo
 {
 public:
 
+    // All mats are float
     static constexpr int CV_MAT_TYPE_ = CV_32F;
     typedef float MAT_TYPE_;
 
+    // Blocks are constructed at specific positions
     BlockInfo(int params, cv::Point2i pos, cv::Point2i bsize)
     {
         blockPos = pos;
@@ -39,6 +41,7 @@ public:
 
     }
 
+    /// Reset Data
     void SetZero()
     {
         hess.setTo(0);
@@ -57,6 +60,7 @@ public:
         isValid = false;
     }
 
+    /// Add another block to this one, scaled with weight
     void Add(BlockInfo* b, float weight)
     {
         if (weight <= 0) return;
@@ -78,6 +82,7 @@ public:
     }
     */
 
+    /// Calculate params for this block
     void CalcParams()
     {
         cv::invert(hess,hessI);
@@ -85,6 +90,7 @@ public:
         isValid = IsValid();
     }
 
+    /// Check if block contains pixels or has invalid parameters
     bool IsValid()
     {
         if (numPixels == 0) return false;
@@ -98,6 +104,7 @@ public:
         return true;
     }
 
+    /// Calculate parameters for sum over all added blocks
     cv::Mat CalcSumParams()
     {
         cv::Mat hInv;
@@ -112,15 +119,13 @@ public:
         return hInv*jacDiffD;
     }
 
+    /// Data members
     cv::Mat hess;
     cv::Mat hessI;
     cv::Mat jacDiff;
 
     cv::Mat hessSum;
     cv::Mat jacDiffSum;
-
-
-    //    cv::Mat paramScale;
 
     cv::Mat currentParams;
     cv::Point2i blockPos;
@@ -136,6 +141,10 @@ public:
 
 };
 
+
+/*!
+    Select blocks by euclidean distance implementation
+ */
 class BS_EuclidDist
 {
 public:
@@ -212,7 +221,9 @@ public:
 
 
 
-
+/*!
+ Block registration implementation. Requires a registration proc and a filter proc.
+ */
 template <typename IR_PROC, typename BLOCK_PROC>
 class BlockReg : public ImageReg<IR_PROC>
 {
@@ -241,16 +252,12 @@ public:
     using ImageReg<IR_PROC>::CalcHesJacDifESMAVX;
     using ImageReg<IR_PROC>::CalcHesJacDifICAVX;
 
-
-    //using ImageReg<IR_PROC>::Setup;
-
-
     typedef std::shared_ptr<BlockReg > ptr;
 
     static BlockReg::ptr Create(){ return std::make_shared< BlockReg >() ; }
 
 
-
+    /// This is specific for block registration
     void SetBlockParams(cv::Size imgSize,  cv::Size blockSize, cv::Point2i blockStep)
     {
         blocks_.clear();
@@ -274,18 +281,21 @@ public:
 
     }
 
+    /// Set parameter scales
     void SetParamScales(cv::Mat paramScale)
     {
         blockProc_.paramScale_ = paramScale;
 
     }
 
+    /// Max distance for block filter
     void SetDistThreshold(float thresh)
     {
         blockProc_.distThreshold_ = thresh;
     }
 
 
+    /// Perform the image align
     void AlignImage(const cv::Mat &refImg, const cv::Mat &refMask, const cv::Mat &tmpImg, const cv::Mat &tmpMask, ImageRegResults &result)
     {
 
@@ -321,7 +331,6 @@ public:
                 {
                     BlockInfo *curInfo = &blocks_[t];
                     curInfo->SetZero();
-                    //CalcHesJacDifESMAVX(ei.refImage_->mat_,ei.refGradX_->mat_, ei.refGradY_->mat_, ei.refMask_->mat_, ei.warpedImage_->mat_, ei.tempGradX_->mat_, ei.tempGradY_->mat_, ei.curMask_->mat_,cv::Point2i(0,0),blockPos_[t],blockSizeP_,hessF[t],jacF[t],numProcessedPixels);
                     CalcHesJacDifESMAVX(refImg_->mat_,refGradX_->mat_,refGradY_->mat_,refMask_->mat_,
                                         wTmpImg_->mat_,wTmpGradX_->mat_,wTmpGradY_->mat_,wTmpMask_->mat_,
                                         offset,curInfo->blockPos,curInfo->blockSize,curInfo->hess,curInfo->jacDiff,curInfo->numPixels);
@@ -329,7 +338,6 @@ public:
                     curInfo->CalcParams();
 
                 }
-                //CalcHesJacDifESMAVX(refImg_->mat_,refGradX_->mat_,refGradY_->mat_,refMask_->mat_, wTmpImg_->mat_,wTmpGradX_->mat_,wTmpGradY_->mat_,wTmpMask_->mat_, offset,tmpPos,tmpSize,hessF,jacF,numPixels);
             }
             else
             {
@@ -338,7 +346,6 @@ public:
                     BlockInfo *curInfo = &blocks_[t];
                     curInfo->SetZero();
 
-                    //CalcHesJacDifESMAVX(ei.refImage_->mat_,ei.refGradX_->mat_, ei.refGradY_->mat_, ei.refMask_->mat_, ei.warpedImage_->mat_, ei.tempGradX_->mat_, ei.tempGradY_->mat_, ei.curMask_->mat_,cv::Point2i(0,0),blockPos_[t],blockSizeP_,hessF[t],jacF[t],numProcessedPixels);
                     CalcHesJacDifICAVX(refImg_->mat_,refGradX_->mat_,refGradY_->mat_,refMask_->mat_,
                                        wTmpImg_->mat_,wTmpMask_->mat_,
                                        offset,curInfo->blockPos,curInfo->blockSize,curInfo->hess,curInfo->jacDiff,curInfo->numPixels);
@@ -347,7 +354,6 @@ public:
 
                 }
 
-                //CalcHesJacDifICAVX(refImg_->mat_,refGradX_->mat_,refGradY_->mat_,refMask_->mat_, wTmpImg_->mat_,wTmpMask_->mat_, offset,tmpPos,tmpSize,hessF,jacF,numPixels);
             }
 
             cv::Mat resPars = blockProc_.Filter(blocks_);
@@ -358,15 +364,11 @@ public:
             result.Update(deltaPars);
             result.pixels = blockProc_.lastSelectedBlock_->numPixelSum;
 
-
-            //result.Update(deltaPars);
-
-
             Utils_SIMD::CalcErrorSqrAVX(refImg_->mat_,refMask_->mat_,wTmpImg_->mat_,wTmpMask_->mat_,offset,result.error,result.pixels);
 
+#ifdef _DEBUG
             DrawDebug();
-            //results.push_back(std::move(result));
-
+#endif
             PrintResult(result);
 
         }
@@ -377,6 +379,7 @@ public:
 
     }
 
+    /// Show the debug image
     void DrawDebug()
     {
         cv::Mat visMat = VisualizeBlocks2(refImg_->mat_,proc_);
@@ -393,6 +396,7 @@ public:
     }
 
 
+    /// Draw points to image
     void drawPoints(cv::Mat &img, cv::Point2d tl, cv::Point2d tr, cv::Point2d bl, cv::Point2d br, cv::Scalar color)
     {
         cv::line(img,tl,tr,color);
@@ -402,6 +406,7 @@ public:
 
     }
 
+    /// Draw the debug image
     cv::Mat VisualizeBlocks2(cv::Mat &img, IR_PROC &esmProc)
     {
         cv::Mat colorImg;

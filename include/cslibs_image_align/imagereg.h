@@ -9,7 +9,9 @@
 
 
 
-
+/*!
+ * \brief The image registration interface
+ */
 class IImageReg
 {
 public:
@@ -25,7 +27,9 @@ public:
 };
 
 
-
+/*!
+ *  Base Class containing matrix operations
+ */
 template <int N>
 class RegProc
 {
@@ -36,11 +40,12 @@ public:
 
     }
 
+    /// Number of parameters and number of entries of upper diagonal matrix
     static constexpr int numParams = N;
     static constexpr int numParamsSq = (N*N+N)/2;
 
 
-
+    /// Calculate ATA and Ad from jacobian and difference
     static inline void CalcMat(const __m256 (&mJVals)[numParams], const __m256& diff,__m256 (&sumHesRows)[numParamsSq], __m256 (&sumJacDifs)[numParams])
     {
         int c = 0;
@@ -62,14 +67,14 @@ public:
 
     }
 
-
+    /// Sum avx vectors to corresponding matrix entries
     static inline void WriteToMatrix(const __m256* sumHesRows,const __m256* sumJacDifs, cv::Mat &jac, cv::Mat &hess,const float &numPixels)
     {
         float *jacDifPtr= jac.ptr<float>(0);
 
-        //float *hesRow1Ptr,*hesRow2Ptr,*hesRow3Ptr;
         float *hesRowPtr[N];
 
+        /// upper triangle
         for (int i = 0; i < N;++i)
         {
             hesRowPtr[i] = hess.ptr<float>(i);
@@ -82,6 +87,7 @@ public:
 
         }
 
+        /// lower triangle
         int c = 0;
         for (int i = 0; i < N;++i)
         {
@@ -138,6 +144,7 @@ public:
         return cv::Mat::zeros(N,1,CV_64F);
     }
 
+    /// For pyramide proc only
     static void ParamScaleUp(cv::Mat &p)
     {
         p.at<double>(0,0) = p.at<double>(0,0)*2.0;
@@ -157,6 +164,10 @@ public:
 
 };
 
+
+/*!
+ * \brief Utility class for creating Euclidean Warp matrix
+ */
 class EuclidWarp
 {
 public:
@@ -173,11 +184,13 @@ public:
     }
 
 };
-
+/*!
+ * \brief Utility class for creating Homography Warp matrix
+ */
 class HOMWarp
 {
 public:
-    static cv::Mat CreateMat(const cv::Mat &params)
+    cv::Mat CreateMat(const cv::Mat &params)
     {
         cv::Mat G = cv::Mat::zeros(3,3,CV_64F);
 
@@ -194,32 +207,44 @@ public:
         G.at<double>(1,0) += params.at<double>(2,0);;
         G.at<double>(1,2) = params.at<double>(1,0);;
         G.at<double>(0,2) = params.at<double>(0,0);;
-        ExpProc expProc;
 
-        expProc.MyExpm(&G);
+        expProc.Expm(&G);
 
         return G;
     }
 
+    ExpProc expProc;
+
+
 };
 
+/*!
+ * \brief ESM with euclidean warp
+ */
 class ESM_Euclidean : public RegProc<3>, public EuclidWarp
 {
 public:
 
+    /// gradient scaling for ESM 1/4 for sobel gradient times 0.5
     static constexpr float gradMultiplier = 0.125f;
+    /// Step size, larger values for faster convergence, but too large values prohibit proper convergence
     static constexpr double stepFactor = 2.0;
+    /// Uses ESM method
     static constexpr bool useESMJac = true;
 
 
+    /// Create the jacobian matrix
     static inline void AddJacobians(__m256* mJVals , const __m256 &mPosX, const __m256 &mPosY, const __m256 &refGradX, const __m256 &refGradY, const __m256 &tempGradX, const __m256 &tempGradY, const __m256 &refData, const __m256 &tempData, const __m256 &mask, const __m256 &gradMul)
     {
         const __m256 maskGradMul = _mm256_mul_ps(mask,gradMul);
 
+        /// jacobian x direction
         mJVals[0] = _mm256_mul_ps(_mm256_add_ps(refGradX,tempGradX),maskGradMul);
 
+        /// jacobian y direction
         mJVals[1] = _mm256_mul_ps(_mm256_add_ps(refGradY,tempGradY),maskGradMul);
 
+        /// jacobian rotation
         mJVals[2] = _mm256_sub_ps(_mm256_mul_ps(mPosX,mJVals[1]),_mm256_mul_ps(mPosY,mJVals[0]));
 
 
@@ -227,6 +252,7 @@ public:
 
     }
 
+    /// Warp image data, includes gradients for ESM
     static cv::Mat DoWarp(const cv::Mat &tmpImg, const cv::Mat &tmpMask, const cv::Mat &tmpGradX, const cv::Mat &tmpGradY, const cv::Mat &params,
                           const cv::Mat &wtmpImg, const cv::Mat &wtmpMask, const cv::Mat &wtmpGradX, const cv::Mat &wtmpGradY)
     {
@@ -242,6 +268,7 @@ public:
         return rot_mat;
     }
 
+    /// Calculate the warp parameters
     static cv::Mat toDeltaPars(const cv::Mat &paramUpdate, double stepFactor)
     {
         cv::Mat res(3,1,CV_64F);
@@ -252,6 +279,10 @@ public:
     }
 };
 
+
+/*!
+ * \brief ESM with euclidean warp with image intensity offset
+ */
 class ESM_Euclidean_IO : public RegProc<4>, public EuclidWarp
 {
 public:
@@ -269,6 +300,7 @@ public:
 
         mJVals[2] = _mm256_sub_ps(_mm256_mul_ps(mPosX,mJVals[1]),_mm256_mul_ps(mPosY,mJVals[0]));
 
+        /// jacobian for intensity
         mJVals[3] = mask;
 
 
@@ -300,6 +332,9 @@ public:
     }
 };
 
+/*!
+ * \brief ESM with homography warp with image intensity offset
+ */
 class ESM_HOM : public RegProc<8>, public HOMWarp
 {
 public:
@@ -314,6 +349,7 @@ public:
 
     }
 
+    /// jacobian of the homograpy warp
     static inline void AddJacobians(__m256* mJVals , const __m256 &mPosX, const __m256 &mPosY, const __m256 &refGradX, const __m256 &refGradY, const __m256 &tempGradX, const __m256 &tempGradY, const __m256 &refData, const __m256 &tempData, const __m256 &mask, const __m256 &gradMul)
     {
         const __m256 maskGradMul = _mm256_mul_ps(mask,gradMul);
@@ -340,7 +376,8 @@ public:
 
     }
 
-    static cv::Mat DoWarp(const cv::Mat &tmpImg, const cv::Mat &tmpMask, const cv::Mat &tmpGradX, const cv::Mat &tmpGradY, const cv::Mat &params,
+    /// Do Homography warp with warp perspective.
+    cv::Mat DoWarp(const cv::Mat &tmpImg, const cv::Mat &tmpMask, const cv::Mat &tmpGradX, const cv::Mat &tmpGradY, const cv::Mat &params,
                           const cv::Mat &wtmpImg, const cv::Mat &wtmpMask, const cv::Mat &wtmpGradX, const cv::Mat &wtmpGradY)
     {
         cv::Mat G = CreateMat(params);
@@ -405,7 +442,7 @@ public:
 
     }
 
-    static cv::Mat DoWarp(const cv::Mat &tmpImg, const cv::Mat &tmpMask, const cv::Mat &tmpGradX, const cv::Mat &tmpGradY, const cv::Mat &params,
+    cv::Mat DoWarp(const cv::Mat &tmpImg, const cv::Mat &tmpMask, const cv::Mat &tmpGradX, const cv::Mat &tmpGradY, const cv::Mat &params,
                           const cv::Mat &wtmpImg, const cv::Mat &wtmpMask, const cv::Mat &wtmpGradX, const cv::Mat &wtmpGradY)
     {
         cv::Mat G = CreateMat(params);
@@ -433,7 +470,9 @@ public:
     }
 };
 
-
+/*!
+ * \brief The Inverse Compositional implementation for Euclidean warp
+ */
 class IC_Euclidean : public RegProc<3>, public EuclidWarp
 {
 public:
@@ -461,6 +500,7 @@ public:
 
     }
 
+    /// warping of gradients is not required for IC
     static cv::Mat DoWarp(const cv::Mat &tmpImg, const cv::Mat &tmpMask, const cv::Mat &tmpGradX, const cv::Mat &tmpGradY, const cv::Mat &params,
                           const cv::Mat &wtmpImg, const cv::Mat &wtmpMask, const cv::Mat &wtmpGradX, const cv::Mat &wtmpGradY)
     {
@@ -574,7 +614,7 @@ public:
 
     }
 
-    static cv::Mat DoWarp(const cv::Mat &tmpImg, const cv::Mat &tmpMask, const cv::Mat &tmpGradX, const cv::Mat &tmpGradY, const cv::Mat &params,
+    cv::Mat DoWarp(const cv::Mat &tmpImg, const cv::Mat &tmpMask, const cv::Mat &tmpGradX, const cv::Mat &tmpGradY, const cv::Mat &params,
                           const cv::Mat &wtmpImg, const cv::Mat &wtmpMask, const cv::Mat &wtmpGradX, const cv::Mat &wtmpGradY)
     {
         cv::Mat G = CreateMat(params);
@@ -636,7 +676,7 @@ public:
 
     }
 
-    static cv::Mat DoWarp(const cv::Mat &tmpImg, const cv::Mat &tmpMask, const cv::Mat &tmpGradX, const cv::Mat &tmpGradY, const cv::Mat &params,
+    cv::Mat DoWarp(const cv::Mat &tmpImg, const cv::Mat &tmpMask, const cv::Mat &tmpGradX, const cv::Mat &tmpGradY, const cv::Mat &params,
                           const cv::Mat &wtmpImg, const cv::Mat &wtmpMask, const cv::Mat &wtmpGradX, const cv::Mat &wtmpGradY)
     {
         cv::Mat G = CreateMat(params);
@@ -663,33 +703,32 @@ public:
 };
 
 
+/*!
+ *Main image registration class.
+ *
+ */
 template <typename IR_PROC>
 class ImageReg : public IImageReg
 {
+
+protected:
+    ImageReg<IR_PROC>()
+    {
+        stepFactor_ = proc_.stepFactor;
+
+    }
 public:
 
+    /// Enforce shared pointer usage
     typedef std::shared_ptr<ImageReg > ptr;
-
     static ImageReg::ptr Create(){ return std::make_shared< ImageReg >() ; }
-
-
-
-//#define RegImageType CV_32F
-
 
     IR_PROC proc_;
 
     double stepFactor_;
 
 
-
-
-    ImageReg<IR_PROC>()
-    {
-        stepFactor_ = proc_.stepFactor;
-
-    }
-
+    /// Setup buffer matrices
     void Setup(cv::Size refImgSize, cv::Size tmpImgSize, int imageType, int numLevels)
     {
         refImg_ = AlignedMat::Create(refImgSize,imageType);
@@ -709,12 +748,14 @@ public:
 
     }
 
+    /// Set termination criteria
     void SetTermCrit(cv::TermCriteria termCrit) {termCrit_ = termCrit;}
     void SetStepFactor(float factor) {stepFactor_ = factor;}
 
     ImageRegResults CreateResult(){return proc_.CreateResult();}
 
 
+    /// Basic function for calculating the sum over all pixels, ESM specific since both gradients are used
     int CalcHesJacDifESMAVX(const cv::Mat &refImage, const cv::Mat &refGradX,const cv::Mat &refGradY, const cv::Mat &refMask, const cv::Mat &templateImage, const cv::Mat &tempGradX, const cv::Mat &tempGradY, const cv::Mat &tempMask, const cv::Point2i &offset, const cv::Point2i &tempPos, const cv::Point2i &size, cv::Mat &hess, cv::Mat &jacDiff, int &numPixels)
     {
 
@@ -855,6 +896,7 @@ public:
     }
 
 
+    /// IC only requires reference templates
     int CalcHesJacDifICAVX(const cv::Mat &refImage, const cv::Mat &refGradX,const cv::Mat &refGradY, const cv::Mat &refMask, const cv::Mat &templateImage, const cv::Mat &tempMask, const cv::Point2i &offset, const cv::Point2i &tempPos, const cv::Point2i &size, cv::Mat &hess, cv::Mat &jacDiff, int &numPixels)
     {
 
@@ -986,6 +1028,7 @@ public:
     }
 
 
+    /// Perform actual alignment
     void AlignImage(const cv::Mat &refImg, const cv::Mat &refMask, const cv::Mat &tmpImg, const cv::Mat &tmpMask, ImageRegResults &result)
     {
 
@@ -996,22 +1039,18 @@ public:
         tmpImg_->CopyDataFrom(tmpImg);
         tmpMask_->CopyDataFrom(tmpMask);
 
-        //cv::Mat tsobel;
         cv::Sobel(refImg,refGradX_->mat_,-1,1,0);
-        //refGradX_->CopyDataFrom(tsobel);
         cv::Sobel(refImg,refGradY_->mat_,-1,0,1);
-        //refGradY_->CopyDataFrom(tsobel);
 
         if (proc_.useESMJac)
         {
             cv::Sobel(tmpImg,tmpGradX_->mat_,-1,1,0);
-            //tmpGradX_->CopyDataFrom(tsobel);
             cv::Sobel(tmpImg,tmpGradY_->mat_,-1,0,1);
-            //tmpGradY_->CopyDataFrom(tsobel);
+
         }
         cv::Mat jacF = IR_PROC::CreateJacF();
         cv::Mat hessF = IR_PROC::CreateHessF();
-        cv::Mat hessFInv = IR_PROC::CreateHessF();
+        //cv::Mat hessFInv = IR_PROC::CreateHessF();
         cv::Mat jacD = IR_PROC::CreateJacD();
         cv::Mat hessD = IR_PROC::CreateHessD();
         cv::Mat hessDInv = IR_PROC::CreateHessD();
@@ -1102,7 +1141,6 @@ public:
         for (unsigned int i = 0; i < procs_.size();++i)
         {
             procs_[i]->SetTermCrit(termCrit);
-            //termCrit.maxCount /= 2;
         }
     }
 
@@ -1126,8 +1164,6 @@ public:
 
 
         float curScale = 1.0/(std::pow(2.0, (numLevels_-1)));
-
-        //int curScale = 1;
 
         for (int tl = 0; tl < numLevels_;tl++)
         {
@@ -1169,9 +1205,6 @@ public:
 
             if (tl != 0) IR_PROC::ParamScaleUp(result.params);
 
-
-            //bool AlignImage(const cv::Mat &refImage, const cv::Mat &refMask, const cv::Mat &templateImage, const cv::Mat &templateMask, const cv::Point2i &offset, ImageRegResults &result)
-
             procs_[tl]->AlignImage(refImgS, refMasks, tmpImgS, tmpMaskS, result);
 
             std::cout << std::endl << std::endl;
@@ -1187,9 +1220,6 @@ public:
 
 
         }
-
-        //PrintResult(result);
-
 
 
     }

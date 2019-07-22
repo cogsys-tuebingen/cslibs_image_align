@@ -138,7 +138,7 @@ public:
         return maximum;
     }
 
-    void MyExpm(cv::Mat *input)
+    void Expm(cv::Mat *input)
     {
         int e;
 
