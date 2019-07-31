@@ -74,20 +74,20 @@ public:
 
         float *hesRowPtr[N];
 
-        /// upper triangle
         for (int i = 0; i < N;++i)
         {
             hesRowPtr[i] = hess.ptr<float>(i);
 
         }
 
+        /// Jacobian*Residual matrix
         for (int i = 0; i < N;++i)
         {
             jacDifPtr[i] = Utils_SIMD::HSumAvxFlt(sumJacDifs[i]);
 
         }
 
-        /// lower triangle
+        /// upper triangle of J^TJ
         int c = 0;
         for (int i = 0; i < N;++i)
         {
@@ -98,6 +98,7 @@ public:
             }
         }
 
+        /// lower triangle
         for (int i = 1; i < N;++i)
         {
             for (int j = 0; j < i;++j)
@@ -711,14 +712,14 @@ template <typename IR_PROC>
 class ImageReg : public IImageReg
 {
 
-protected:
+
+public:
+
     ImageReg<IR_PROC>()
     {
         stepFactor_ = proc_.stepFactor;
 
     }
-public:
-
     /// Enforce shared pointer usage
     typedef std::shared_ptr<ImageReg > ptr;
     static ImageReg::ptr Create(){ return std::make_shared< ImageReg >() ; }
@@ -1121,7 +1122,9 @@ public:
 
 };
 
-
+/*!
+ * \brief Class for wrapping image alignment using image pyramid
+ */
 template <typename IR_PROC>
 class ImageRegPyr : public IImageReg
 {
@@ -1188,8 +1191,10 @@ public:
     void AlignImage(const cv::Mat &refImg, const cv::Mat &refMask, const cv::Mat &tmpImg, const cv::Mat &tmpMask, ImageRegResults &result)
     {
 
+        /// scale input parameter to the first (smallest) level
         IR_PROC::ParamScale(result.params,levelScale_[0]);
 
+        /// loop over all levels
         for (int tl = 0; tl < numLevels_;++tl)
         {
             cv::Mat refImgS,refMasks;

@@ -366,7 +366,7 @@ public:
 
             Utils_SIMD::CalcErrorSqrAVX(refImg_->mat_,refMask_->mat_,wTmpImg_->mat_,wTmpMask_->mat_,offset,result.error,result.pixels);
 
-#ifdef _DEBUG
+#ifndef NDEBUG
             DrawDebug();
 #endif
             PrintResult(result);
