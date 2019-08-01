@@ -1122,6 +1122,231 @@ public:
 
 };
 
+
+
+template <typename IR_PROC>
+class ImageRegRes : public ImageReg<IR_PROC>
+{
+
+public:
+
+    typedef std::shared_ptr<ImageRegRes > ptr;
+
+    static ImageRegRes::ptr Create(){ return std::make_shared< ImageRegRes >() ; }
+
+
+    ImageRegRes()
+    {
+        useTDistribution_ = true;
+
+    }
+
+    void SetTermCrit(cv::TermCriteria termCrit) {termCrit_ = termCrit;}
+    void SetStepFactor(float factor) {stepFactor_ = factor;}
+
+    ImageRegResults CreateResult(){return proc_.CreateResult();}
+
+    void SetUseTDistribution(bool useTD) {useTDistribution_ = useTD;}
+
+    /// Setup buffer matrices
+    void Setup(cv::Size refImgSize, cv::Size tmpImgSize, int imageType, int numLevels)
+    {
+        ImageReg<IR_PROC>::Setup(refImgSize,tmpImgSize,imageType, numLevels);
+
+        residual_ = AlignedMat::Create(refImgSize,imageType);
+
+
+    }
+
+
+    static constexpr float sqrtPi = std::sqrt(CV_PI);
+    static constexpr float piF = (CV_PI);
+    static constexpr float fakHalf = 1.772453850905516f;
+
+    inline float TDist(const float &t) const
+    {
+        return 1.0f/ (sqrtPi * (1.0f+ t*t) * fakHalf);
+
+        // normalize t distribution to 0..1 by multiplying with pi
+        //return piF/ (sqrtPi * (1.0f+ t*t) * fakHalf);
+
+
+    }
+
+
+    void FilterResidual_TDistribution(cv::Mat &residual, const cv::Mat &mask )
+    {
+        float *resPtr;
+        const float *maskPtr;
+        float tempVal;
+        for (int y = 0; y < residual.rows;++y)
+        {
+            resPtr = residual.ptr<float>(y);
+            maskPtr = mask.ptr<float>(y);
+            for (int x = 0; x < residual.cols;++x)
+            {
+                tempVal = *resPtr;
+                //tempVal *= tempVal;
+                *resPtr = TDist(tempVal )* (*maskPtr);
+                resPtr++;
+                maskPtr++;
+            }
+
+
+        }
+    }
+
+    void FilterResidual_Linear(cv::Mat &residual, const cv::Mat &mask )
+    {
+        float *resPtr;
+        const float *maskPtr;
+        float tempVal;
+        float threshold = 100.0f;
+        float thresholdI = 1.0f/threshold;
+        for (int y = 0; y < residual.rows;++y)
+        {
+            resPtr = residual.ptr<float>(y);
+            maskPtr = mask.ptr<float>(y);
+            for (int x = 0; x < residual.cols;++x)
+            {
+                tempVal = std::max(threshold - std::abs(*resPtr),0.0f);
+                *resPtr = tempVal*thresholdI;
+                resPtr++;
+                maskPtr++;
+            }
+
+
+        }
+    }
+
+
+    /// Perform actual alignment
+    void AlignImage(const cv::Mat &refImg, const cv::Mat &refMask, const cv::Mat &tmpImg, const cv::Mat &tmpMask, ImageRegResults &result)
+    {
+
+
+        refImg_->CopyDataFrom(refImg);
+        refMask_->CopyDataFrom(refMask);
+
+        tmpImg_->CopyDataFrom(tmpImg);
+        tmpMask_->CopyDataFrom(tmpMask);
+
+        cv::Sobel(refImg,refGradX_->mat_,-1,1,0);
+        cv::Sobel(refImg,refGradY_->mat_,-1,0,1);
+
+        if (proc_.useESMJac)
+        {
+            cv::Sobel(tmpImg,tmpGradX_->mat_,-1,1,0);
+            cv::Sobel(tmpImg,tmpGradY_->mat_,-1,0,1);
+
+        }
+        cv::Mat jacF = IR_PROC::CreateJacF();
+        cv::Mat hessF = IR_PROC::CreateHessF();
+        //cv::Mat hessFInv = IR_PROC::CreateHessF();
+        cv::Mat jacD = IR_PROC::CreateJacD();
+        cv::Mat hessD = IR_PROC::CreateHessD();
+        cv::Mat hessDInv = IR_PROC::CreateHessD();
+        int numPixels = 0;
+
+        cv::Point2i offset(0,0);
+        cv::Point2i tmpPos(0,0);
+        cv::Point2i tmpSize(tmpImg.cols,tmpImg.rows);
+
+        residual_->mat_.setTo(0);
+
+        
+
+        while (result.TestResults(termCrit_))
+        {
+
+            result.warpMat = IR_PROC::DoWarp(tmpImg_->mat_,tmpMask_->mat_,tmpGradX_->mat_,tmpGradY_->mat_,result.params,wTmpImg_->mat_,wTmpMask_->mat_,wTmpGradX_->mat_,wTmpGradY_->mat_);
+
+            Utils_SIMD::CalcErrorSqrResidualAVX(refImg_->mat_,refMask_->mat_,wTmpImg_->mat_,wTmpMask_->mat_,residual_->mat_,offset,result.error,result.pixels);
+            
+            if (useTDistribution_)
+            {
+                FilterResidual_TDistribution(residual_->mat_,wTmpMask_->mat_);
+            }
+            else
+            {
+                FilterResidual_Linear(residual_->mat_,wTmpMask_->mat_);
+            }
+
+
+            Display32FImage("residuals", residual_->mat_, 0.0f, 1.0f);
+            cv::waitKey();
+            
+            
+            
+            if (proc_.useESMJac) CalcHesJacDifESMAVX(refImg_->mat_,refGradX_->mat_,refGradY_->mat_,refMask_->mat_,
+                                                     wTmpImg_->mat_,wTmpGradX_->mat_,wTmpGradY_->mat_,residual_->mat_,
+                                                     offset,tmpPos,tmpSize,hessF,jacF,numPixels);
+            else CalcHesJacDifICAVX(refImg_->mat_,refGradX_->mat_,refGradY_->mat_,refMask_->mat_,
+                                    wTmpImg_->mat_,wTmpMask_->mat_,
+                                    offset,tmpPos,tmpSize,hessF,jacF,numPixels);
+
+            hessF.convertTo(hessD,CV_64F);
+            jacF.convertTo(jacD,CV_64F);
+
+            //std::cout << "Hess: " << hessD << std::endl;
+            //std::cout << "Jac: " << jacD << std::endl;
+
+            cv::invert(hessD,hessDInv );
+            cv::Mat resPars = hessDInv*jacD;
+            cv::Mat deltaPars = IR_PROC::toDeltaPars(resPars,stepFactor_);
+
+            result.Update(deltaPars);
+
+
+            
+            //results.push_back(std::move(result));
+
+            //PrintResult(result);
+
+        }
+
+        PrintResult(result);
+
+
+
+    }
+
+
+private:
+    AlignedMat::ptr residual_;
+
+    bool useTDistribution_;
+
+
+
+    using ImageReg<IR_PROC>::refImg_;
+    using ImageReg<IR_PROC>::refMask_;
+    using ImageReg<IR_PROC>::refGradX_;
+    using ImageReg<IR_PROC>::refGradY_;
+
+    using ImageReg<IR_PROC>::tmpImg_;
+    using ImageReg<IR_PROC>::tmpMask_;
+    using ImageReg<IR_PROC>::tmpGradX_;
+    using ImageReg<IR_PROC>::tmpGradY_;
+    using ImageReg<IR_PROC>::wTmpImg_;
+    using ImageReg<IR_PROC>::wTmpMask_;
+    using ImageReg<IR_PROC>::wTmpGradX_;
+    using ImageReg<IR_PROC>::wTmpGradY_;
+
+    using ImageReg<IR_PROC>::PrintResult;
+    using ImageReg<IR_PROC>::stepFactor_;
+    using ImageReg<IR_PROC>::proc_;
+    using ImageReg<IR_PROC>::termCrit_;
+
+    using ImageReg<IR_PROC>::CalcHesJacDifESMAVX;
+    using ImageReg<IR_PROC>::CalcHesJacDifICAVX;
+
+
+};
+
+
+
+
 /*!
  * \brief Class for wrapping image alignment using image pyramid
  */

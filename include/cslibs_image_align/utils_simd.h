@@ -15,6 +15,8 @@
 
 namespace Utils_SIMD {
 
+
+/// horizontal sum over simd vector
 inline float HSumAvxFlt(const __m256 &val)
 {
     float sumAVX = 0;
@@ -27,11 +29,13 @@ inline float HSumAvxFlt(const __m256 &val)
     return sumAVX;
 }
 
+
 inline void LoopZero(__m256 *vals, const int &n)
 {
     for (int x = 0; x < n; ++x) vals[x] = _mm256_set1_ps(0.0f);
 }
 
+/// Get JT*J and JT*diff
 inline void ProcessJacDiff(const int &n, const __m256 &diff, const __m256 *jvals,  __m256 *sumJ, __m256 *sumH )
 {
     int ic = 0;
@@ -48,6 +52,7 @@ inline void ProcessJacDiff(const int &n, const __m256 &diff, const __m256 *jvals
 
 }
 
+/// Calculate the squared error between reference and warped template
 inline void  CalcErrorSqrAVX(const cv::Mat &ref,const cv::Mat &refmask, const cv::Mat &temp, const cv::Mat &tempMask, const cv::Point2i offset, float &error, float &numPixels)
 {
     int x,y;
@@ -82,12 +87,11 @@ inline void  CalcErrorSqrAVX(const cv::Mat &ref,const cv::Mat &refmask, const cv
 
 
     for(y = yStart; y < yEnd; ++y)
-    {
-
-        refPtr = ref.ptr<float>(y+offset.y)+offset.x;
-        refMaskPtr = refmask.ptr<float>(y+offset.y)+offset.x;
-        tempPtr = temp.ptr<float>(y);
-        tempMaskPtr = tempMask.ptr<float>(y);
+    {        
+        refPtr = ref.ptr<float>(y+offset.y)+xStart+offset.x;
+        refMaskPtr = refmask.ptr<float>(y+offset.y)+xStart+offset.x;
+        tempPtr = temp.ptr<float>(y)+xStart;
+        tempMaskPtr = tempMask.ptr<float>(y)+xStart;
 
 
 
@@ -104,8 +108,6 @@ inline void  CalcErrorSqrAVX(const cv::Mat &ref,const cv::Mat &refmask, const cv
 
             maskDiff = _mm256_mul_ps(diff,maskV);
 
-
-            //res = _mm256_and_ps(maskDiff,absmask);
             resSqr = _mm256_mul_ps(maskDiff,maskDiff);
 
             errorSum = _mm256_add_ps(errorSum,resSqr);
@@ -126,6 +128,7 @@ inline void  CalcErrorSqrAVX(const cv::Mat &ref,const cv::Mat &refmask, const cv
 }
 
 
+/// Calculate the squared error between reference and warped template and store it in a residual image
 inline void  CalcErrorSqrResidualAVX(const cv::Mat &ref,const cv::Mat &refmask, const cv::Mat &temp, const cv::Mat &tempMask, cv::Mat &residualImg, const cv::Point2i offset, float &error, float &numPixels)
 {
     int x,y;
@@ -164,10 +167,11 @@ inline void  CalcErrorSqrResidualAVX(const cv::Mat &ref,const cv::Mat &refmask, 
     for(y = yStart; y < yEnd; ++y)
     {
 
-        refPtr = ref.ptr<float>(y+offset.y)+offset.x;
-        refMaskPtr = refmask.ptr<float>(y+offset.y)+offset.x;
-        tempPtr = temp.ptr<float>(y);
-        tempMaskPtr = tempMask.ptr<float>(y);
+        refPtr = ref.ptr<float>(y+offset.y)+xStart+offset.x;
+        refMaskPtr = refmask.ptr<float>(y+offset.y)+xStart+offset.x;
+        tempPtr = temp.ptr<float>(y)+xStart;
+        tempMaskPtr = tempMask.ptr<float>(y)+xStart;
+
         residualPtr = residualImg.ptr<float>(y);
 
 
@@ -185,11 +189,11 @@ inline void  CalcErrorSqrResidualAVX(const cv::Mat &ref,const cv::Mat &refmask, 
             maskDiff = _mm256_mul_ps(diff,maskV);
 
 
-            res = _mm256_and_ps(maskDiff,absmask);
+            //res = _mm256_and_ps(maskDiff,absmask);
+
+            resSqr = _mm256_mul_ps(maskDiff,maskDiff);
 
             _mm256_store_ps(residualPtr,maskDiff);
-
-            resSqr = _mm256_mul_ps(res,res);
 
             errorSum = _mm256_add_ps(errorSum,resSqr);
             pixelSum = _mm256_add_ps(pixelSum,maskV);
@@ -209,10 +213,11 @@ inline void  CalcErrorSqrResidualAVX(const cv::Mat &ref,const cv::Mat &refmask, 
 }
 
 
+/// utility function to get a quick estimate of the translation. Images must be 32-bit aligned and stepsize%8 == 0
 cv::Point2f GetInitialTrans(const cv::Mat &ref, const cv::Mat &refMask, const cv::Mat &tmp, const cv::Mat &tmpMask, int stepSize, int numSteps)
 {
 
-    float bestError = 9999999;
+    float bestError = 999999.0f;
     cv::Point2i bestPos;
     float numPixels;
     float curError;

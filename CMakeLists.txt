@@ -27,8 +27,6 @@ include_directories(
 
 cslibs_image_align_show_headers()
 
-#cslibs_image_align_add_unit_test_gtest(ia_test SRCS test/test.cpp WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/test)
-
 catkin_add_gtest(${PROJECT_NAME}-test test/test.cpp WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/test)
 
 if(TARGET ${PROJECT_NAME}-test)
@@ -43,6 +41,20 @@ add_executable(example_align
 target_link_libraries(example_align
     ${OpenCV_LIBRARIES}
     )
+
+
+add_custom_command(
+        TARGET example_align POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy
+                ${CMAKE_SOURCE_DIR}/${PROJECT_NAME}/test/img3.png
+                ${CMAKE_BINARY_DIR}/devel/lib/${PROJECT_NAME}/img3.png)
+
+add_custom_command(
+        TARGET example_align POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy
+                ${CMAKE_SOURCE_DIR}/${PROJECT_NAME}/test/img4.png
+                ${CMAKE_BINARY_DIR}/devel/lib/${PROJECT_NAME}/img4.png)
+
 
 
 install(DIRECTORY include/${PROJECT_NAME}/

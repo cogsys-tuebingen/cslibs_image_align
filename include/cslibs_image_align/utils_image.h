@@ -59,19 +59,13 @@ struct ImageRegResults {
 
     }
 
-
-    //cv::TermCriteria
-
     bool TestResults(cv::TermCriteria &termCrit)
     {
         if (delta < termCrit.epsilon) return false;
         if (iterations > termCrit.maxCount) return false;
-        //if (error < termCrit.minEpsilon_) return false;
         if (pixels == 0) return false;
         return true;
     }
-
-    //double GetParam(const int &n) { return paramPtr[n];}
 
     cv::Mat params;
     cv::Mat deltaParams;
@@ -86,8 +80,72 @@ struct ImageRegResults {
 };
 
 
+
+void Display32FImage(std::string wname, cv::Mat image, float imin, float imax)
+{
+    cv::namedWindow(wname,0);
+    cv::Mat displayImg;
+
+
+    switch (image.channels())
+    {
+    case 1:
+        image.convertTo(displayImg,CV_8U,256.0/(double)(imax-imin),-imin*256.0/(double)(imax-imin));
+        break;
+    case 3:
+        image.convertTo(displayImg,CV_8UC3,256.0/(double)(imax-imin),-imin*256.0/(double)(imax-imin));
+        break;
+    case 4:
+        image.convertTo(displayImg,CV_8UC4,256.0/(double)(imax-imin),-imin*256.0/(double)(imax-imin));
+
+    default:
+         displayImg = cv::Mat::zeros(16,16,CV_8U);
+    }
+
+    cv::imshow(wname,displayImg);
+
+}
+
+void Display32FImage(std::string wname, cv::Mat &image)
+{
+    cv::namedWindow(wname,0);
+    double imin,imax;
+    int minIdx,maxIdx;
+    cv::minMaxIdx(image,&imin,&imax,&minIdx,&maxIdx);
+
+    cv::Mat displayImg;
+    switch (image.channels())
+    {
+    case 1:
+        image.convertTo(displayImg,CV_8U,256.0/(double)(imax-imin),-imin*256.0/(double)(imax-imin));
+        break;
+    case 3:
+        image.convertTo(displayImg,CV_8UC3,256.0/(double)(imax-imin),-imin*256.0/(double)(imax-imin));
+        break;
+    case 4:
+        image.convertTo(displayImg,CV_8UC4,256.0/(double)(imax-imin),-imin*256.0/(double)(imax-imin));
+
+    default:
+         displayImg = cv::Mat::zeros(16,16,CV_8U);
+    }
+    cv::imshow(wname,displayImg);
+
+}
+
+
+
+
 class ExpProc
 {
+
+/*    matrix exponential tool class
+ *
+ *  The function is taken from https://bitbucket.org/rricha1/naya/src/master/
+    Copyright (c) Rogerio Richa
+    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ */
 public:
 
     ExpProc()
@@ -379,7 +437,6 @@ public:
             cv::Mat timg;
 
             cv::resize(levels_[tl-1]->mat_,timg,cv::Size(levels_[tl-1]->mat_.cols/2, levels_[tl-1]->mat_.rows/2));
-            //cv::pyrDown(imgPyr[tl-1],timg,cv::Size(imgPyr[tl-1].cols/2, imgPyr[tl-1].rows/2));
             levels_.push_back(AlignedMat::Create(timg));
 
         }
@@ -397,8 +454,6 @@ public:
             cv::Mat threshImg;
 
             cv::resize(levels_[tl-1]->mat_,timg,cv::Size(levels_[tl-1]->mat_.cols/2, levels_[tl-1]->mat_.rows/2));
-            //cv::pyrDown(imgPyr[tl-1],timg,cv::Size(imgPyr[tl-1].cols/2, imgPyr[tl-1].rows/2));
-            //cv::threshold(timg,threshImg,1.0,1.0,CV_THRESH_TRUNC);
             cv::threshold(timg,threshImg,0.9999,1.0,CV_THRESH_BINARY);
             levels_.push_back(AlignedMat::Create(threshImg));
 

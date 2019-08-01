@@ -432,7 +432,6 @@ public:
 
             BlockInfo *cB = &blocks_[i];
             cv::Size bSize(cB->blockSize.x,cB->blockSize.y);
-            //if (cB->numPixels <  minPixelFact*bSize.width*bSize.height) continue;
             if (!cB->isValid) continue;
 
 
@@ -457,9 +456,6 @@ public:
             outputP.push_back(otr);
             outputP.push_back(obl);
             outputP.push_back(obr);
-
-            //cv::Mat warpMat = Utils_Math::CorrectOrigin(cv::Point2d(cB->blockOffset_.x,cB->blockOffset_.y),cB->results_.hom);
-            //cv::Mat tMat = warpMat.rowRange(0,2);
 
             bool containsInvalid = false;
             for (int r = 0; r < cB->currentParams.rows;r++)
@@ -489,7 +485,7 @@ public:
             cv::line(colorImg,tr,wtr,cv::Scalar(0,255,0));
             cv::line(colorImg,bl,wbl,cv::Scalar(0,255,0));
             cv::line(colorImg,br,wbr,cv::Scalar(0,255,0));
-            //if (cB->results_.pixels > 0)
+
             if (cB->isSelected)
             {
                 cv::circle(colorImg,(tr+tl+br+bl)*0.25,3,cv::Scalar(0,255,0));
