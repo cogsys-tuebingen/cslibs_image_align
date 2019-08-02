@@ -83,7 +83,7 @@ struct ImageRegResults {
 
 void Display32FImage(std::string wname, cv::Mat image, float imin, float imax)
 {
-    cv::namedWindow(wname,0);
+    cv::namedWindow(wname,cv::WINDOW_AUTOSIZE);
     cv::Mat displayImg;
 
 
@@ -108,7 +108,7 @@ void Display32FImage(std::string wname, cv::Mat image, float imin, float imax)
 
 void Display32FImage(std::string wname, cv::Mat &image)
 {
-    cv::namedWindow(wname,0);
+    cv::namedWindow(wname,cv::WINDOW_AUTOSIZE);
     double imin,imax;
     int minIdx,maxIdx;
     cv::minMaxIdx(image,&imin,&imax,&minIdx,&maxIdx);

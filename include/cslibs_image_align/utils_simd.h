@@ -147,10 +147,10 @@ inline void  CalcErrorSqrResidualAVX(const cv::Mat &ref,const cv::Mat &refmask, 
     __m256 maskDiff;
 
 
-    __m256 res;
+    //__m256 res;
     __m256 resSqr;
 
-    const __m256 absmask = _mm256_castsi256_ps(_mm256_set1_epi32(0x7FFFFFFF));
+    //const __m256 absmask = _mm256_castsi256_ps(_mm256_set1_epi32(0x7FFFFFFF));
 
     __m256 errorSum =  _mm256_set1_ps(0.0f);
     __m256 pixelSum =  _mm256_set1_ps(0.0f);

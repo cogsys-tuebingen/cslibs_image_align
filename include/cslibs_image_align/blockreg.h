@@ -227,30 +227,8 @@ public:
 template <typename IR_PROC, typename BLOCK_PROC>
 class BlockReg : public ImageReg<IR_PROC>
 {
+
 public:
-
-    using ImageReg<IR_PROC>::refImg_;
-    using ImageReg<IR_PROC>::refMask_;
-    using ImageReg<IR_PROC>::refGradX_;
-    using ImageReg<IR_PROC>::refGradY_;
-    using ImageReg<IR_PROC>::tmpImg_;
-    using ImageReg<IR_PROC>::tmpMask_;
-    using ImageReg<IR_PROC>::tmpGradX_;
-    using ImageReg<IR_PROC>::tmpGradY_;
-
-    using ImageReg<IR_PROC>::wTmpImg_;
-    using ImageReg<IR_PROC>::wTmpMask_;
-    using ImageReg<IR_PROC>::wTmpGradX_;
-    using ImageReg<IR_PROC>::wTmpGradY_;
-
-    using ImageReg<IR_PROC>::proc_;
-    using ImageReg<IR_PROC>::termCrit_;
-
-    using ImageReg<IR_PROC>::stepFactor_;
-    using ImageReg<IR_PROC>::PrintResult;
-
-    using ImageReg<IR_PROC>::CalcHesJacDifESMAVX;
-    using ImageReg<IR_PROC>::CalcHesJacDifICAVX;
 
     typedef std::shared_ptr<BlockReg > ptr;
 
@@ -386,7 +364,7 @@ public:
 
 
 
-        cv::namedWindow("blocks",0);
+        cv::namedWindow("blocks",cv::WINDOW_AUTOSIZE);
 
         cv::imshow("blocks",visMat);
 
@@ -504,6 +482,31 @@ public:
 
 
     }
+
+
+private:
+    using ImageReg<IR_PROC>::refImg_;
+    using ImageReg<IR_PROC>::refMask_;
+    using ImageReg<IR_PROC>::refGradX_;
+    using ImageReg<IR_PROC>::refGradY_;
+    using ImageReg<IR_PROC>::tmpImg_;
+    using ImageReg<IR_PROC>::tmpMask_;
+    using ImageReg<IR_PROC>::tmpGradX_;
+    using ImageReg<IR_PROC>::tmpGradY_;
+
+    using ImageReg<IR_PROC>::wTmpImg_;
+    using ImageReg<IR_PROC>::wTmpMask_;
+    using ImageReg<IR_PROC>::wTmpGradX_;
+    using ImageReg<IR_PROC>::wTmpGradY_;
+
+    using ImageReg<IR_PROC>::proc_;
+    using ImageReg<IR_PROC>::termCrit_;
+
+    using ImageReg<IR_PROC>::stepFactor_;
+    using ImageReg<IR_PROC>::PrintResult;
+
+    using ImageReg<IR_PROC>::CalcHesJacDifESMAVX;
+    using ImageReg<IR_PROC>::CalcHesJacDifICAVX;
 
 
 

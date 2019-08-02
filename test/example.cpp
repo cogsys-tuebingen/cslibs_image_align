@@ -22,7 +22,7 @@
 
 
 
-constexpr bool doCrop = true;
+constexpr bool doCrop = false;
 
 void ReadImage(std::string imgName, int erosion_size, cv::Mat &img, cv::Mat &mask)
 {
@@ -148,7 +148,19 @@ int main(int argc, char *argv[])
     AlignedMat::ptr tmpImgA = AlignedMat::Create(tmpImg);
     AlignedMat::ptr tmpMaskA = AlignedMat::Create(tmpMask);
 
+    // Get an initial estimate by sampling, maybe required for large translation offsets
+
+    timeval tStart;
+    gettimeofday(&tStart, NULL);
+
     cv::Point2f initial = Utils_SIMD::GetInitialTrans(refImgA->mat_,refMaskA->mat_,tmpImgA->mat_,tmpMaskA->mat_,8,20);
+
+    timeval tZend;
+    gettimeofday(&tZend, NULL);
+    double tE= (double)(tZend.tv_sec - tStart.tv_sec)*1000.0+ (double)(tZend.tv_usec - tStart.tv_usec)/1000.0;
+
+    std::cout << " Find initial transform for (20+20)^2 steps: "<< tE;
+
 
     ///Setup ImageReg
     int number_of_iterations = 50;
@@ -156,37 +168,38 @@ int main(int argc, char *argv[])
     int numPyrLevels = 4;
     cv::TermCriteria term_criteria(cv::TermCriteria::COUNT+cv::TermCriteria::EPS, number_of_iterations, termination_eps);
 
-    /// Test block wise registration
+
+
+    /// register with image pyramid
+    auto regESM_EU_PYR = ImageRegPyr<ESM_Euclidean>::Create();
+    regESM_EU_PYR->Setup(refImg.size(),refImg.size(),refImg.type(),numPyrLevels);
+    regESM_EU_PYR->SetTermCrit(term_criteria);
+
+    ImageRegResults resPyr = regESM_EU_PYR->CreateResult();
+
+
+    TestAlign(regESM_EU_PYR," pyramide",refImg,refMask,tmpImg,tmpMask,resPyr);
+
+
+
+    /// register with block wise outlier rejection
     auto regBlock = BlockReg<ESM_Euclidean,BS_EuclidDist>::Create();
     IImageReg::ptr regESM_PE = regBlock;
     regBlock->SetBlockParams(refImg.size(),cv::Size(64,64),cv::Point2i(32,32));
-    //regBlock->SetBlockParams(refImg.size(),cv::Size(32,32),cv::Point2i(16,16));
     regBlock->SetDistThreshold(0.3);
 
     regESM_PE->Setup(refImg.size(),refImg.size(),refImg.type(),numPyrLevels);
     regESM_PE->SetTermCrit(term_criteria);
-    ImageRegResults resEuc = regESM_PE->CreateResult();
+    ImageRegResults resBlock = regESM_PE->CreateResult();
 
-    resEuc.params.at<double>(0,0) = initial.x;
-    resEuc.params.at<double>(1,0) = initial.y;
+    resBlock.params.at<double>(0,0) = initial.x;
+    resBlock.params.at<double>(1,0) = initial.y;
 
-    TestAlign(regESM_PE," with blocks",refImg,refMask,tmpImg,tmpMask,resEuc);
-
-
-
-    IImageReg::ptr regESM_EU = ImageRegPyr<ESM_Euclidean>::Create();
-    regESM_EU->Setup(refImg.size(),refImg.size(),refImg.type(),numPyrLevels);
-    regESM_EU->SetTermCrit(term_criteria);
-
-    ImageRegResults resPyr = regESM_EU->CreateResult();
+    TestAlign(regESM_PE," with blocks",refImg,refMask,tmpImg,tmpMask,resBlock);
 
 
-    TestAlign(regESM_EU," pyramide",refImg,refMask,tmpImg,tmpMask,resPyr);
-
-
-
-
-    IImageReg::ptr  regESM_RE = ImageRegRes<ESM_Euclidean>::Create();
+    /// register with residual based outlier rejection
+    auto regESM_RE = ImageRegRes<ESM_Euclidean>::Create();
     regESM_RE->Setup(refImg.size(),refImg.size(),refImg.type(),numPyrLevels);
     regESM_RE->SetTermCrit(term_criteria);
 
@@ -196,6 +209,11 @@ int main(int argc, char *argv[])
     resRes.params.at<double>(1,0) = initial.y;
 
     TestAlign(regESM_RE," residual",refImg,refMask,tmpImg,tmpMask,resRes);
+
+
+    Display32FImage("refence image",refImg);
+    Display32FImage("template image",tmpImg);
+
 
 
     char key = 0;

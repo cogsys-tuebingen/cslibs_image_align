@@ -1273,8 +1273,10 @@ public:
             }
 
 
+#ifndef NDEBUG
             Display32FImage("residuals", residual_->mat_, 0.0f, 1.0f);
             cv::waitKey();
+#endif
             
             
             
