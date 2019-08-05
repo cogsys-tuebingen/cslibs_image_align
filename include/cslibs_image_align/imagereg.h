@@ -45,24 +45,19 @@ public:
     static constexpr int numParamsSq = (N*N+N)/2;
 
 
-    /// Calculate ATA and Ad from jacobian and difference
+    /// Calculate JTJ and Jd from jacobian and residual vector
     static inline void CalcMat(const __m256 (&mJVals)[numParams], const __m256& diff,__m256 (&sumHesRows)[numParamsSq], __m256 (&sumJacDifs)[numParams])
     {
         int c = 0;
 
         for (int i = 0; i < N;++i)
         {
+            sumJacDifs[i] = _mm256_add_ps(sumJacDifs[i],_mm256_mul_ps(mJVals[i],diff));
             for (int j = i; j < N;++j)
             {
                 sumHesRows[c] = _mm256_add_ps(sumHesRows[c],_mm256_mul_ps( mJVals[i], mJVals[j]));
                 ++c;
             }
-        }
-
-
-        for (int i = 0; i < N;++i)
-        {
-            sumJacDifs[i] = _mm256_add_ps(sumJacDifs[i],_mm256_mul_ps(mJVals[i],diff));
         }
 
     }
@@ -74,23 +69,15 @@ public:
 
         float *hesRowPtr[N];
 
-        for (int i = 0; i < N;++i)
-        {
-            hesRowPtr[i] = hess.ptr<float>(i);
 
-        }
-
-        /// Jacobian*Residual matrix
-        for (int i = 0; i < N;++i)
-        {
-            jacDifPtr[i] = Utils_SIMD::HSumAvxFlt(sumJacDifs[i]);
-
-        }
-
-        /// upper triangle of J^TJ
         int c = 0;
         for (int i = 0; i < N;++i)
         {
+            /// Jacobian*Residual vector
+            jacDifPtr[i] = Utils_SIMD::HSumAvxFlt(sumJacDifs[i]);
+
+            /// upper right triangle of J^TJ
+            hesRowPtr[i] = hess.ptr<float>(i);
             for (int j = i; j < N;++j)
             {
                 hesRowPtr[i][j] =  Utils_SIMD::HSumAvxFlt(sumHesRows[c]);
@@ -98,7 +85,7 @@ public:
             }
         }
 
-        /// lower triangle
+        /// lower left triangle
         for (int i = 1; i < N;++i)
         {
             for (int j = 0; j < i;++j)
@@ -226,7 +213,7 @@ class ESM_Euclidean : public RegProc<3>, public EuclidWarp
 {
 public:
 
-    /// gradient scaling for ESM 1/4 for sobel gradient times 0.5
+    /// gradient scaling for ESM: 1/4 for sobel gradient times 0.5
     static constexpr float gradMultiplier = 0.125f;
     /// Step size, larger values for faster convergence, but too large values prohibit proper convergence
     static constexpr double stepFactor = 2.0;
@@ -282,7 +269,7 @@ public:
 
 
 /*!
- * \brief ESM with euclidean warp with image intensity offset
+ * \brief ESM with euclidean warp with image intensity offset, full affine illumination model is missing
  */
 class ESM_Euclidean_IO : public RegProc<4>, public EuclidWarp
 {
@@ -301,7 +288,7 @@ public:
 
         mJVals[2] = _mm256_sub_ps(_mm256_mul_ps(mPosX,mJVals[1]),_mm256_mul_ps(mPosY,mJVals[0]));
 
-        /// jacobian for intensity
+        /// jacobian for intensity offset
         mJVals[3] = mask;
 
 
@@ -334,7 +321,7 @@ public:
 };
 
 /*!
- * \brief ESM with homography warp with image intensity offset
+ * \brief ESM with homography warp
  */
 class ESM_HOM : public RegProc<8>, public HOMWarp
 {
@@ -401,6 +388,9 @@ public:
 };
 
 
+/*!
+ * \brief ESM with homography warp and image intensity offset
+ */
 class ESM_HOM_IO : public RegProc<9>, public HOMWarp
 {
 public:
@@ -720,7 +710,7 @@ public:
         stepFactor_ = proc_.stepFactor;
 
     }
-    /// Enforce shared pointer usage
+    /// shared pointer typedef and creator function
     typedef std::shared_ptr<ImageReg > ptr;
     static ImageReg::ptr Create(){ return std::make_shared< ImageReg >() ; }
 
@@ -802,7 +792,7 @@ public:
 
         int channels = refImage.channels();
 
-
+        /// step sizes for different channel counts
         switch (channels)
         {
         case 4:
@@ -897,7 +887,7 @@ public:
     }
 
 
-    /// IC only requires reference templates
+    /// IC only requires reference gradients, these are only calculated once
     int CalcHesJacDifICAVX(const cv::Mat &refImage, const cv::Mat &refGradX,const cv::Mat &refGradY, const cv::Mat &refMask, const cv::Mat &templateImage, const cv::Mat &tempMask, const cv::Point2i &offset, const cv::Point2i &tempPos, const cv::Point2i &size, cv::Mat &hess, cv::Mat &jacDiff, int &numPixels)
     {
 
@@ -1051,7 +1041,6 @@ public:
         }
         cv::Mat jacF = IR_PROC::CreateJacF();
         cv::Mat hessF = IR_PROC::CreateHessF();
-        //cv::Mat hessFInv = IR_PROC::CreateHessF();
         cv::Mat jacD = IR_PROC::CreateJacD();
         cv::Mat hessD = IR_PROC::CreateHessD();
         cv::Mat hessDInv = IR_PROC::CreateHessD();

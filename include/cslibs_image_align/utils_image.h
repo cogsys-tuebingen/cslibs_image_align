@@ -348,54 +348,54 @@ public:
     switch(cvType){
     case CV_8U  :
         return 1;
-        break; //optional
+        break;
     case CV_8UC3  :
         return 3;
-        break; //optional
+        break;
     case CV_8UC4  :
         return 4;
-        break; //optional
+        break;
 
     case CV_16S  :
         return 2;
-        break; //optional
+        break;
     case CV_16SC3  :
         return 6;
-        break; //optional
+        break;
     case CV_16SC4  :
         return 8;
-        break; //optional
+        break;
 
     case CV_16U  :
         return 2;
-        break; //optional
+        break;
     case CV_16UC3  :
         return 6;
-        break; //optional
+        break;
     case CV_16UC4  :
         return 8;
-        break; //optional
+        break;
 
 
     case CV_32F  :
         return 4;
-        break; //optional
+        break;
     case CV_32FC3  :
         return 12;
-        break; //optional
+        break;
     case CV_32FC4  :
         return 16;
-        break; //optional
+        break;
 
     case CV_64F  :
         return 8;
-        break; //optional
+        break;
     case CV_64FC3  :
         return 24;
-        break; //optional
+        break;
     case CV_64FC4  :
         return 32;
-        break; //optional
+        break;
     }
     return 1;
 

@@ -17,7 +17,7 @@ public:
     static constexpr int CV_MAT_TYPE_ = CV_32F;
     typedef float MAT_TYPE_;
 
-    // Blocks are constructed at specific positions
+    /// Blocks are constructed at specific positions
     BlockInfo(int params, cv::Point2i pos, cv::Point2i bsize)
     {
         blockPos = pos;
@@ -209,8 +209,6 @@ public:
 
 
     }
-
-
 
     BlockInfo *lastSelectedBlock_;
     cv::Mat paramScale_;
